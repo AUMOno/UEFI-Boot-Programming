@@ -1,4 +1,4 @@
 int _start()
 {
-    return 0;
+    return 255;
 }

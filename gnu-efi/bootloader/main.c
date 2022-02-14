@@ -1,6 +1,46 @@
 #include <efi.h>
 #include <efilib.h>
 
+// Used for efi_main
+#include <elf.h>
+typedef unsigned long long size_t;
+
+// Used for graphics output
+typedef struct {
+	void* BaseAddress;
+	size_t BufferSize;
+	unsigned int Width;
+	unsigned int Height;
+	// Software features tend to include extra bytes for added functionality
+	unsigned int PixelsPerScanLine;
+} Framebuffer;
+
+Framebuffer frame_buffer;
+
+Framebuffer* InitializeGOP() {
+	EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+	EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
+	EFI_STATUS status;
+
+	// GNU efi method to call the protocol as per conventions.
+	status = uefi_call_wrapper(BS->LocateProtocol, 3, &gopGuid, NULL, (void**)&gop);
+	if (EFI_ERROR(status))
+	{
+		Print(L"Unable to locate Graphics output protocol (GOP).\n\r");
+		return NULL;
+	} else {
+		Print(L"Graphics output protocol (GOP) located.\n\r");
+	}
+
+	frame_buffer.BaseAddress = (void*)gop->Mode->FrameBufferBase;
+	frame_buffer.BufferSize = gop->Mode->FrameBufferSize;
+	frame_buffer.Width = gop->Mode->Info->HorizontalResolution;
+	frame_buffer.Height = gop->Mode->Info->VerticalResolution;
+	frame_buffer.PixelsPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+
+	return &frame_buffer;
+}
+
 EFI_FILE* LoadFile(EFI_FILE* directory, CHAR16* systemPath, EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable)
 {
 	// elf is stored within the assumed file system
@@ -25,8 +65,6 @@ EFI_FILE* LoadFile(EFI_FILE* directory, CHAR16* systemPath, EFI_HANDLE imageHand
 	}
 }
 
-#include <elf.h>
-typedef unsigned long long size_t;
 int memcmp(const void* aptr, const void* bptr, size_t n)
 {
 	const unsigned char* a = aptr;
@@ -122,7 +160,24 @@ EFI_STATUS efi_main (EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable) {
 
 	int (*KernelStart)() = ((__attribute__((sysv_abi)) int (*)() ) kernelHeader.e_entry);
 
-	Print(L"%d\r\n", KernelStart());
+	Framebuffer* newBuffer = InitializeGOP();
+
+	Print(L"\
+	\
+	BaseAddress: 0x%x\n\r\
+	BufferSize: 0x%x\n\r\
+	Width: %d\n\r\
+	Height: %d\n\r\
+	PixelsPerScanLine: %d\n\r\
+	____\n\r",
+	newBuffer->BaseAddress,
+	newBuffer->BufferSize,
+	newBuffer->Width,
+	newBuffer->Height,
+	newBuffer->PixelsPerScanLine);
+
+	/* Call KernelStart */
+	Print(L"The entry point returned %d\r\n", KernelStart());
 
 	return EFI_SUCCESS; // Exit the UEFI application
 }
