@@ -25,7 +25,7 @@ typedef struct {
 
 typedef unsigned int UInt;
 
-void putChar(Framebuffer* frameBuffer, PSF1_FONT* psf1Font, UInt color, char character, UInt xOff, UInt yOff)
+void put_char(Framebuffer* frameBuffer, PSF1_FONT* psf1Font, UInt color, char character, UInt xOff, UInt yOff)
 {
     UInt* pixPtr = (UInt*)frameBuffer->BaseAddress;
     // Use base address block to add the character, AKA find the decimal value
@@ -47,18 +47,40 @@ void putChar(Framebuffer* frameBuffer, PSF1_FONT* psf1Font, UInt color, char cha
     }
 }
 
+void print(Framebuffer* frameBuffer, PSF1_FONT* psf1Font, UInt color, char* str)
+{
+    UInt x = 0;
+
+    // Print has a buffer limit of 256 chars for testing purposes at the moment
+    for (int i = 0; i < 256; i++)
+    {
+        if (str[i] == 0)
+        {
+            return;
+        }
+        else {
+            put_char(frameBuffer, psf1Font, color, str[i], x, 16);
+            x += 8;
+        }
+    }
+}
+
 int _start(Framebuffer* frameBuffer, PSF1_FONT* psf1Font)
 {
     UInt y = 49;
 	UInt BPP = 4;
 
     // Incrementing by BPP sets RGB
-	for (UInt x = 0; x < frameBuffer->Width / 2 * BPP; x += BPP)
-	{
-		*(UInt*)(x + (y * frameBuffer->PixelsPerScanLine * BPP) + frameBuffer->BaseAddress) = 0xff00ffff;
-	}
+    for (UInt x = 0; x < frameBuffer->Width / 2 * BPP; x += BPP)
+    {
+        *(UInt*)(x + (y * frameBuffer->PixelsPerScanLine * BPP) + frameBuffer->BaseAddress) = 0xff00ffff;
+    }
 
-    putChar(frameBuffer, psf1Font, 0xffffffff, 'A', 16, 16);
+    put_char(frameBuffer, psf1Font, 0xffffffff, 'A', 16, 16);
+
+    char load[12] = {'U', 'E', 'F', 'I', ' ', 'l', 'o', 'a', 'd', 'e', 'd', 0};
+
+    print(frameBuffer, psf1Font, 0xffffffff, load);
 
     return 255;
 }
