@@ -71,10 +71,10 @@ int _start(Framebuffer* frameBuffer, PSF1_FONT* psf1Font)
 	UInt BPP = 4;
 
     // Incrementing by BPP sets RGB
-	for (UInt x = 0; x < frameBuffer->Width / 2 * BPP; x += BPP)
-	{
-		*(UInt*)(x + (y * frameBuffer->PixelsPerScanLine * BPP) + frameBuffer->BaseAddress) = 0xff00ffff;
-	}
+    for (UInt x = 0; x < frameBuffer->Width / 2 * BPP; x += BPP)
+    {
+        *(UInt*)(x + (y * frameBuffer->PixelsPerScanLine * BPP) + frameBuffer->BaseAddress) = 0xff00ffff;
+    }
 
     put_char(frameBuffer, psf1Font, 0xffffffff, 'A', 16, 16);
 
