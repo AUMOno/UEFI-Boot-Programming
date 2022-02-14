@@ -68,7 +68,7 @@ void print(Framebuffer* frameBuffer, PSF1_FONT* psf1Font, UInt color, char* str)
 int _start(Framebuffer* frameBuffer, PSF1_FONT* psf1Font)
 {
     UInt y = 49;
-	UInt BPP = 4;
+    UInt BPP = 4;
 
     // Incrementing by BPP sets RGB
     for (UInt x = 0; x < frameBuffer->Width / 2 * BPP; x += BPP)
