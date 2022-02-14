@@ -97,10 +97,11 @@ PSF1_FONT* LoadPSF1Font(EFI_FILE* directory, CHAR16* systemPath, EFI_HANDLE imag
 		return NULL;
 	}
 
-	UINTN glyphBufferSize = fontHeader->charsize*256;
-	if (fontHeader->mode ==1)
+	UINTN glyphBufferSize = fontHeader->charsize * 256;
+	// If 512mb glyph mode
+	if (fontHeader->mode == 1)
 	{
-		glyphBufferSize = fontHeader->charsize*512;
+		glyphBufferSize = fontHeader->charsize * 512;
 	}
 
 	void* glyphBuffer;
@@ -112,8 +113,8 @@ PSF1_FONT* LoadPSF1Font(EFI_FILE* directory, CHAR16* systemPath, EFI_HANDLE imag
 
 	PSF1_FONT* finishedFont;
 	systemTable->BootServices->AllocatePool(EfiLoaderData, sizeof(PSF1_FONT), (void**)&finishedFont);
-	finishedFont->psf1_header=fontHeader;
-	finishedFont->glyph_buffer=glyphBuffer;
+	finishedFont->psf1_header = fontHeader;
+	finishedFont->glyph_buffer = glyphBuffer;
 	return finishedFont;
 }
 
@@ -210,7 +211,7 @@ EFI_STATUS efi_main (EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable) {
 
 	Print(L"Kernel uploaded with success.\r\n");
 
-	int (*KernelStart)(Framebuffer*) = ((__attribute__((sysv_abi)) int (*)(Framebuffer*) ) kernelHeader.e_entry);
+	int (*KernelStart)(Framebuffer*, PSF1_FONT*) = ((__attribute__((sysv_abi)) int (*)(Framebuffer*, PSF1_FONT*) ) kernelHeader.e_entry);
 
 	PSF1_FONT* newFont = LoadPSF1Font(NULL, L"zap-light16.psf", imageHandle, systemTable);
 	if (newFont == NULL)
@@ -238,7 +239,7 @@ EFI_STATUS efi_main (EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable) {
 	newBuffer->PixelsPerScanLine);
 
 	/* Call KernelStart */
-	Print(L"The entry point returned %d\r\n", KernelStart(newBuffer));
+	Print(L"The entry point returned %d\r\n", KernelStart(newBuffer, newFont));
 
 	return EFI_SUCCESS; // Exit the UEFI application
 }
