@@ -15,6 +15,20 @@ typedef struct {
 	unsigned int PixelsPerScanLine;
 } Framebuffer;
 
+#define PSF1_MAGIC0 0x36
+#define PSF1_MAGIC1 0x04
+
+typedef struct {
+    unsigned char magic[2];
+    unsigned char mode;
+    unsigned char charsize;
+} PSF1_HEADER;
+
+typedef struct {
+    PSF1_HEADER* psf1_header;
+    void* glyph_buffer;
+} PSF1_FONT;
+
 Framebuffer frame_buffer;
 
 Framebuffer* InitializeGOP() {
@@ -63,6 +77,44 @@ EFI_FILE* LoadFile(EFI_FILE* directory, CHAR16* systemPath, EFI_HANDLE imageHand
 	else {
 		return NULL;
 	}
+}
+
+PSF1_FONT* LoadPSF1Font(EFI_FILE* directory, CHAR16* systemPath, EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable)
+{
+	EFI_FILE* font = LoadFile(directory, systemPath, imageHandle, systemTable);
+	if (font == NULL)
+	{
+		return NULL;
+	}
+
+	PSF1_HEADER* fontHeader;
+	systemTable->BootServices->AllocatePool(EfiLoaderData, sizeof(PSF1_HEADER), (void**)&fontHeader);
+	UINTN size = sizeof(PSF1_HEADER);
+	font->Read(font, &size, fontHeader);
+
+	if (fontHeader->magic[0] != PSF1_MAGIC0 || fontHeader->magic[1] != PSF1_MAGIC1)
+	{
+		return NULL;
+	}
+
+	UINTN glyphBufferSize = fontHeader->charsize*256;
+	if (fontHeader->mode ==1)
+	{
+		glyphBufferSize = fontHeader->charsize*512;
+	}
+
+	void* glyphBuffer;
+	{
+		font->SetPosition(font, sizeof(PSF1_HEADER));
+		systemTable->BootServices->AllocatePool(EfiLoaderData, glyphBufferSize, (void**)&glyphBuffer);
+		font->Read(font, &glyphBufferSize, glyphBuffer);
+	}
+
+	PSF1_FONT* finishedFont;
+	systemTable->BootServices->AllocatePool(EfiLoaderData, sizeof(PSF1_FONT), (void**)&finishedFont);
+	finishedFont->psf1_header=fontHeader;
+	finishedFont->glyph_buffer=glyphBuffer;
+	return finishedFont;
 }
 
 int memcmp(const void* aptr, const void* bptr, size_t n)
@@ -158,7 +210,16 @@ EFI_STATUS efi_main (EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable) {
 
 	Print(L"Kernel uploaded with success.\r\n");
 
-	int (*KernelStart)() = ((__attribute__((sysv_abi)) int (*)() ) kernelHeader.e_entry);
+	int (*KernelStart)(Framebuffer*) = ((__attribute__((sysv_abi)) int (*)(Framebuffer*) ) kernelHeader.e_entry);
+
+	PSF1_FONT* newFont = LoadPSF1Font(NULL, L"zap-light16.psf", imageHandle, systemTable);
+	if (newFont == NULL)
+	{
+		Print(L"Font did not load.\n\r");
+	}
+	else {
+		Print(L"Font found. Char size = %d\n\r", newFont->psf1_header->charsize);
+	}
 
 	Framebuffer* newBuffer = InitializeGOP();
 
@@ -177,7 +238,7 @@ EFI_STATUS efi_main (EFI_HANDLE imageHandle, EFI_SYSTEM_TABLE* systemTable) {
 	newBuffer->PixelsPerScanLine);
 
 	/* Call KernelStart */
-	Print(L"The entry point returned %d\r\n", KernelStart());
+	Print(L"The entry point returned %d\r\n", KernelStart(newBuffer));
 
 	return EFI_SUCCESS; // Exit the UEFI application
 }
